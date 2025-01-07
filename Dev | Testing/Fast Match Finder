@@ -1,0 +1,54 @@
+local function fireRemote(eventName, ...)
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local RemoteEvent = ReplicatedStorage:WaitForChild("RemoteEvent")
+    RemoteEvent:FireServer(eventName, ...)
+end
+
+local function invokeRemote(eventName, args)
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local RemoteFunction = ReplicatedStorage:WaitForChild("RemoteFunction")
+    return RemoteFunction:InvokeServer(eventName, args)
+end
+
+local function getBoardByMap(selectedMap)
+    for _, board in ipairs(workspace.IntermissionLobby.Boards:GetChildren()) do
+        if board.Hitboxes.Bottom.MapDisplay.Title.Text == selectedMap then
+            return board
+        end
+    end
+    return nil
+end
+
+local function voteForMap(board, selectedMap)
+    local cframe = board.Hitboxes.VotePlatform.CFrame
+    fireRemote("LobbyVoting", "Vote", selectedMap, Vector3.new(cframe.X, cframe.Y, cframe.Z))
+    fireRemote("LobbyVoting", "Ready")
+    return true
+end
+
+local function startMultiplayerGame(difficulty, mode, count)
+    invokeRemote("Multiplayer", {
+        ["difficulty"] = difficulty or "Easy",
+        ["mode"] = mode or "survival",
+        ["count"] = count or 1
+    })
+    return true
+end
+
+return function(selectedMap, difficulty, mode, count)
+    local board = getBoardByMap(selectedMap)
+
+    if board then
+        return voteForMap(board, selectedMap)
+    else
+        fireRemote("LobbyVoting", "Veto")
+        task.wait(0.5)
+
+        board = getBoardByMap(selectedMap)
+        if board then
+            return voteForMap(board, selectedMap)
+        else
+            return startMultiplayerGame(difficulty, mode, count)
+        end
+    end
+end
